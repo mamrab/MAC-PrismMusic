@@ -1,7 +1,7 @@
 {
   "productName": "PrismMusic",
   "version": "0.1.0",
-  "identifier": "com.prismmusic.app",
+  "identifier": "com.prismmusic.macos",
   "build": {
     "beforeDevCommand": "",
     "beforeBuildCommand": "",

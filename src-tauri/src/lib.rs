@@ -1,8 +1,5 @@
 use tauri::Manager;
 
-#[cfg(target_os = "windows")]
-use window_vibrancy::{apply_mica, apply_acrylic};
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -11,6 +8,7 @@ pub fn run() {
 
             #[cfg(target_os = "windows")]
             {
+                use window_vibrancy::{apply_mica, apply_acrylic};
                 // Apply Mica dark theme effect (matching our dark/immersive theme)
                 if let Err(_) = apply_mica(&window, Some(true)) {
                     // Fallback to Acrylic if Mica is not supported (e.g., Windows 10)
@@ -27,6 +25,7 @@ pub fn run() {
                     None, 
                     None
                 );
+                let _ = window.set_title("");
                 let _ = window.set_decorations(true);
                 let _ = window.set_title_bar_style(tauri::TitleBarStyle::Overlay);
             }
