@@ -1,0 +1,125 @@
+name: macOS Build
+
+# Builds the PrismMusic macOS app and produces a packaged .app bundle in a ZIP file.
+# No code signing certificate is required.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: macos-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-macos:
+    name: Build macOS App
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          # Try to select Xcode 26 beta, Xcode-beta, or default to standard Xcode.app
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$XCODE" ]; then
+            XCODE=$(ls -d /Applications/Xcode-beta.app 2>/dev/null | head -1)
+          fi
+          if [ -z "$XCODE" ]; then
+            XCODE="/Applications/Xcode.app"
+          fi
+          echo "Selecting $XCODE"
+          sudo xcode-select -s "$XCODE"
+
+      - name: Show toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      # ── Locate project ────────────────────────────────────────────
+      - name: Locate macOS project root
+        id: locate_project
+        run: |
+          if [ -f project.yml ]; then
+            ROOT="."
+          else
+            ROOT=$(find . -maxdepth 3 -name project.yml -not -path './.git/*' -print -quit | xargs -n1 dirname || true)
+          fi
+          if [ -z "$ROOT" ] || [ ! -f "$ROOT/project.yml" ]; then
+            echo "::error::project.yml not found anywhere in the repo."
+            exit 1
+          fi
+          echo "Found macOS project at: $ROOT"
+          echo "root=$ROOT" >> "$GITHUB_OUTPUT"
+
+      # ── XcodeGen ──────────────────────────────────────────────────
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ${{ steps.locate_project.outputs.root }}
+        run: xcodegen generate
+
+      # ── Resolve SPM deps ──────────────────────────────────────────
+      - name: Resolve Swift Package dependencies
+        working-directory: ${{ steps.locate_project.outputs.root }}
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project PrismMusic.xcodeproj \
+            -scheme PrismMusic
+
+      # ── Build for macOS ───────────────────────────────────────────
+      - name: Build macOS App
+        working-directory: ${{ steps.locate_project.outputs.root }}
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project PrismMusic.xcodeproj \
+            -scheme PrismMusic \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=YES \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            -quiet
+
+      # ── Locate the .app ──────────────────────────────────────────
+      - name: Locate built .app bundle
+        id: locate_app
+        working-directory: ${{ steps.locate_project.outputs.root }}
+        run: |
+          APP_PATH=$(find build/Build/Products -type d -name 'PrismMusic.app' | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "::error::PrismMusic.app not found in build output."
+            echo "Build products tree:"
+            find build/Build/Products -type d -maxdepth 4 || true
+            exit 1
+          fi
+          echo "Found app at: $APP_PATH"
+          echo "app_path=$APP_PATH" >> "$GITHUB_OUTPUT"
+
+      # ── Package macOS app ─────────────────────────────────────────
+      - name: Package macOS app
+        working-directory: ${{ steps.locate_project.outputs.root }}
+        run: |
+          APP_PATH="${{ steps.locate_app.outputs.app_path }}"
+          APP_DIR=$(dirname "$APP_PATH")
+          cd "$APP_DIR"
+          zip -ry "$GITHUB_WORKSPACE/PrismMusic-macOS.zip" PrismMusic.app
+
+      # ── Upload macOS app artifact ──────────────────────────────────
+      - name: Upload macOS App ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: PrismMusic-macOS-${{ github.sha }}
+          path: PrismMusic-macOS.zip
+          if-no-files-found: error
+          retention-days: 30
