@@ -24,11 +24,12 @@ jobs:
       - name: Checkout MAC-PrismMusic (Tauri configuration)
         uses: actions/checkout@v4
 
-      - name: Checkout Next.js Frontend
+      - name: Checkout Next.js Frontend (Private Repository)
         uses: actions/checkout@v4
         with:
           repository: apofeoziy/PrismMusic
           path: PrismMusic
+          token: ${{ secrets.GH_PAT }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
