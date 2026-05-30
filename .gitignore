@@ -1,0 +1,26 @@
+# Xcode project file is regenerated from `project.yml` by XcodeGen on
+# every checkout — never commit it.
+*.xcodeproj/
+*.xcworkspace/
+
+# Build outputs
+build/
+.build/
+DerivedData/
+
+# Xcode user state
+xcuserdata/
+*.xcuserstate
+*.moved-aside
+
+# Swift Package Manager
+.swiftpm/
+Package.resolved
+
+# macOS metadata
+.DS_Store
+
+# Editor / OS noise
+*.swp
+.idea/
+.vscode/

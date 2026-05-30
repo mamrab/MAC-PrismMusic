@@ -1,0 +1,58 @@
+# XcodeGen specification for PrismMusic macOS version.
+# Generate with: `xcodegen generate` (on macOS, after `brew install xcodegen`).
+
+name: PrismMusic
+options:
+  bundleIdPrefix: com.prism.music
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  defaultConfig: Debug
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "6.1"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "2"
+    DEVELOPMENT_TEAM: ""            # set in Xcode → Signing & Capabilities
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    SWIFT_STRICT_CONCURRENCY: targeted
+    GENERATE_INFOPLIST_FILE: NO
+  configs:
+    Debug:
+      SWIFT_OPTIMIZATION_LEVEL: -Onone
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+    Release:
+      SWIFT_OPTIMIZATION_LEVEL: -O
+
+targets:
+  PrismMusic:
+    type: application
+    platform: macOS
+    entitlements:
+      path: PrismMusic/PrismMusic.entitlements
+    sources:
+      - path: PrismMusic
+        excludes:
+          - "**/*.md"
+    resources:
+      - path: PrismMusic/Assets.xcassets
+        optional: true
+
+    info:
+      path: PrismMusic/Info.plist
+      properties:
+        CFBundleDisplayName: PrismMusic
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        ITSAppUsesNonExemptEncryption: false
+        NSAppTransportSecurity:
+          # Allows hitting a local dev server (e.g. http://127.0.0.1:3000) without HTTPS.
+          NSAllowsArbitraryLoads: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.prism.music.mac
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor

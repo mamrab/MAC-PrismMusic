@@ -1,0 +1,91 @@
+//
+//  AppState.swift
+//  PrismMusic
+//
+//  Root state container. Holds everything that has to outlive a single view:
+//   - audio (AVPlayer + Now Playing + Live Activity orchestration)
+//   - API client (single instance, reads backend URL from UserDefaults)
+//   - library (liked tracks)
+//   - recommendations cache (loaded once at app start)
+//   - settings (backend URL, Yandex token, immersive mode)
+//
+//  Wired into the SwiftUI environment by `PrismMusicApp` so any view can
+//  pull it via `@Environment(AppState.self)`.s
+//
+
+import Foundation
+import Observation
+
+@Observable
+@MainActor
+final class AppState {
+    let settings: SettingsStore
+    let api: APIClient
+    let audio: AudioPlayer
+    let library: LibraryStore
+    let recommendations: RecommendationsStore
+    let search: SearchStore
+    let networkMonitor: NetworkMonitor
+    let downloadStore: DownloadStore
+
+    init() {
+        let settings = SettingsStore()
+        let api = APIClient(settings: settings)
+        let library = LibraryStore(api: api, settings: settings)
+        self.settings = settings
+        self.api = api
+        self.library = library
+        self.recommendations = RecommendationsStore()
+        self.search = SearchStore()
+        self.audio = AudioPlayer(api: api, library: library)
+        self.networkMonitor = NetworkMonitor.shared
+        self.downloadStore = DownloadStore(api: api)
+    }
+
+    func findAndReplace(track: Track, targetSource: TrackSource) async {
+        do {
+            let results = try await api.findTrack(
+                title: track.title,
+                artist: track.artist,
+                targetSource: targetSource.rawValue
+            )
+            
+            guard let matchedTrack = results.first else {
+                audio.errorMessage = "Трек не найден на \(targetSource.label)"
+                audio.showError = true
+                return
+            }
+            
+            let newId = "\(targetSource.rawValue):\(matchedTrack.id)"
+            let replacedTrack = Track(
+                id: newId,
+                title: matchedTrack.title,
+                artist: matchedTrack.artist,
+                album: matchedTrack.album,
+                durationSeconds: matchedTrack.durationSeconds,
+                cover: matchedTrack.cover,
+                streamURL: matchedTrack.streamURL,
+                source: targetSource
+            )
+            
+            if library.isLiked(track) {
+                library.replaceTrack(track, with: replacedTrack)
+            }
+            
+            audio.replaceTrackInQueue(oldTrackId: track.id, with: replacedTrack)
+            
+            // If downloaded, delete old and download new
+            if downloadStore.isDownloaded(track.id) {
+                downloadStore.deleteTrack(track)
+                await downloadStore.downloadTrack(replacedTrack)
+            }
+            
+            audio.errorMessage = "Трек успешно заменен на \(targetSource.label)!"
+            audio.showError = true
+        } catch {
+            print("[AppState] Find and replace failed: \(error)")
+            audio.errorMessage = "Ошибка замены: \(error.localizedDescription)"
+            audio.showError = true
+        }
+    }
+}
