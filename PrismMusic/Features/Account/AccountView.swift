@@ -35,8 +35,7 @@ struct AccountView: View {
                 }
                 .scrollIndicators(.hidden)
             }
-            .navigationBarHidden(true)
-            .toolbar(.hidden, for: .navigationBar)
+            .safeNavigationBarHidden()
         }
     }
 
@@ -146,7 +145,7 @@ struct AccountView: View {
                     .font(Theme.Typography.caption)
                     .foregroundStyle(Theme.Palette.textSecondary)
                 TextField("username", text: $usernameDraft)
-                    .textInputAutocapitalization(.never)
+                    .safeTextInputAutocapitalizationNever()
                     .autocorrectionDisabled()
                     .padding(12)
                     .background(Color.white.opacity(0.04))

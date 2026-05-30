@@ -34,8 +34,7 @@ struct SearchView: View {
                     }
                 }
             }
-            .navigationBarHidden(true)
-            .toolbar(.hidden, for: .navigationBar)
+            .safeNavigationBarHidden()
             .navigationDestination(for: Album.self) { album in
                 PlaylistDetailView(album: album)
             }

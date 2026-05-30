@@ -59,8 +59,7 @@ struct HomeView: View {
                     await app.recommendations.refresh(client: app.api)
                 }
             }
-            .navigationBarHidden(true)
-            .toolbar(.hidden, for: .navigationBar)
+            .safeNavigationBarHidden()
             .navigationDestination(for: Album.self) { album in
                 PlaylistDetailView(album: album)
             }

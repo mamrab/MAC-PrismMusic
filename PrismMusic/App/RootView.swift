@@ -54,7 +54,7 @@ struct RootView: View {
             }
             .animation(Theme.Motion.apple, value: app.audio.currentTrack?.id)
         }
-        .fullScreenCover(isPresented: $nowPlayingPresented) {
+        .safeFullScreenCover(isPresented: $nowPlayingPresented) {
             NowPlayingView(isPresented: $nowPlayingPresented)
                 .environment(app)
         }

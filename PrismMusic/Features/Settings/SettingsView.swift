@@ -268,8 +268,7 @@ struct SettingsView: View {
                 }
                 .scrollIndicators(.hidden)
             }
-            .navigationBarHidden(true)
-            .toolbar(.hidden, for: .navigationBar)
+            .safeNavigationBarHidden()
             .safeAreaPadding(.bottom, app.audio.currentTrack != nil ? 100 : 0)
             .alert("Yandex.Music token", isPresented: $showTokenInfo) {
                 Button("OK", role: .cancel) {}
@@ -375,9 +374,9 @@ struct RealTimeLogsView: View {
             }
         }
         .navigationTitle("Логи")
-        .navigationBarTitleDisplayMode(.inline)
+        .safeNavigationBarTitleDisplayModeInline()
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .safeTopBarTrailing) {
                 Button("Закрыть") { isPresented = false }
             }
         }

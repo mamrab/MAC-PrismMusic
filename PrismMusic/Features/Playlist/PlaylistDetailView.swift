@@ -72,9 +72,8 @@ struct PlaylistDetailView: View {
             .padding(.leading, Theme.Layout.screenInset)
             .padding(.top, 52)
         }
-        .navigationBarHidden(true)
+        .safeNavigationBarHidden()
         .navigationBarBackButtonHidden(true)
-        .toolbar(.hidden, for: .navigationBar)
         .task {
             await loadTracks()
         }

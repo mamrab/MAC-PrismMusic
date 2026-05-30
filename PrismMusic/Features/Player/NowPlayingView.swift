@@ -18,6 +18,9 @@
 //
 
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 struct NowPlayingView: View {
     @Environment(AppState.self) private var app
@@ -53,6 +56,7 @@ struct NowPlayingView: View {
         guard let track = app.audio.currentTrack else { return }
         let shareText = "Послушай \(track.title) — \(track.artist) в PrismMusic"
         
+        #if os(iOS)
         let activityVC = UIActivityViewController(activityItems: [shareText], applicationActivities: nil)
         
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
@@ -64,6 +68,12 @@ struct NowPlayingView: View {
             }
             rootVC.present(activityVC, animated: true)
         }
+        #elseif os(macOS)
+        let picker = NSSharingServicePicker(items: [shareText])
+        if let window = NSApplication.shared.windows.first {
+            picker.show(relativeTo: .zero, of: window.contentView ?? NSView(), preferredEdge: .minY)
+        }
+        #endif
     }
 
     private func resetIdleTimer() {
@@ -748,7 +758,7 @@ private struct QueueView: View {
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
                 .background(Color.clear)
-                .environment(\.editMode, .constant(.active))
+                .safeEditModeActive()
             }
         }
     }
