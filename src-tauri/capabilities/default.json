@@ -1,0 +1,19 @@
+{
+  "$schema": "../gen/schemas/capability.json",
+  "identifier": "default",
+  "description": "Default permissions for the main window",
+  "windows": ["*"],
+  "permissions": [
+    "core:path:default",
+    "core:event:default",
+    "core:window:default",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
+    "core:app:default",
+    "core:resources:default",
+    "core:menu:default",
+    "core:tray:default"
+  ]
+}

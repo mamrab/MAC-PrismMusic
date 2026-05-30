@@ -1,6 +1,6 @@
 name: macOS Build
 
-# Builds the PrismMusic macOS app and produces a packaged .app bundle in a DMG image.
+# Builds the PrismMusic macOS desktop app (Tauri) and produces a packaged DMG.
 # No code signing certificate is required.
 
 on:
@@ -16,121 +16,72 @@ concurrency:
 
 jobs:
   build-macos:
-    name: Build macOS App
-    runs-on: macos-15
-    timeout-minutes: 30
+    name: Build macOS App (Tauri)
+    runs-on: macos-latest
+    timeout-minutes: 45
 
     steps:
-      - name: Checkout
+      - name: Checkout MAC-PrismMusic (Tauri configuration)
         uses: actions/checkout@v4
 
-      - name: Select Xcode
-        run: |
-          # Try to select Xcode 26 beta, Xcode-beta, or default to standard Xcode.app
-          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
-          if [ -z "$XCODE" ]; then
-            XCODE=$(ls -d /Applications/Xcode-beta.app 2>/dev/null | head -1)
-          fi
-          if [ -z "$XCODE" ]; then
-            XCODE="/Applications/Xcode.app"
-          fi
-          echo "Selecting $XCODE"
-          sudo xcode-select -s "$XCODE"
+      - name: Checkout Next.js Frontend
+        uses: actions/checkout@v4
+        with:
+          repository: apofeoziy/PrismMusic
+          path: PrismMusic
 
-      - name: Show toolchain
-        run: |
-          sw_vers
-          xcodebuild -version
-          swift --version
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: PrismMusic/package-lock.json
 
-      # ── Locate project ────────────────────────────────────────────
-      - name: Locate macOS project root
-        id: locate_project
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: universal-apple-darwin
+
+      - name: Build Next.js Frontend
         run: |
-          if [ -f project.yml ]; then
-            ROOT="."
-          else
-            ROOT=$(find . -maxdepth 3 -name project.yml -not -path './.git/*' -print -quit | xargs -n1 dirname || true)
-          fi
-          if [ -z "$ROOT" ] || [ ! -f "$ROOT/project.yml" ]; then
-            echo "::error::project.yml not found anywhere in the repo."
+          cd PrismMusic
+          npm ci
+          node build-tauri.js
+
+      - name: Position static files for Tauri
+        run: |
+          mkdir -p ../out
+          cp -R PrismMusic/out/* ../out/
+          echo "=== Static assets ready at ../out ==="
+          ls -la ../out | head -20
+
+      - name: Install Tauri CLI
+        run: npm install -g @tauri-apps/cli
+
+      - name: Build Tauri macOS application
+        run: |
+          npx tauri build --target universal-apple-darwin
+        env:
+          # Disable code signing requirement for development / unsigned builds
+          APPLE_DEVELOPMENT_TEAM: ""
+
+      - name: Locate built DMG
+        id: locate_dmg
+        run: |
+          DMG_PATH=$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -type f -name "*.dmg" | head -n 1)
+          if [ -z "$DMG_PATH" ]; then
+            echo "::error::DMG not found in target folder."
+            find src-tauri/target -type f -name "*.dmg" || true
             exit 1
           fi
-          echo "Found macOS project at: $ROOT"
-          echo "root=$ROOT" >> "$GITHUB_OUTPUT"
+          echo "Found DMG at: $DMG_PATH"
+          cp "$DMG_PATH" "$GITHUB_WORKSPACE/PrismMusic-macOS.dmg"
+          echo "dmg_path=$GITHUB_WORKSPACE/PrismMusic-macOS.dmg" >> "$GITHUB_OUTPUT"
 
-      # ── XcodeGen ──────────────────────────────────────────────────
-      - name: Install XcodeGen
-        run: brew install xcodegen
-
-      - name: Generate Xcode project
-        working-directory: ${{ steps.locate_project.outputs.root }}
-        run: xcodegen generate
-
-      # ── Resolve SPM deps ──────────────────────────────────────────
-      - name: Resolve Swift Package dependencies
-        working-directory: ${{ steps.locate_project.outputs.root }}
-        run: |
-          xcodebuild -resolvePackageDependencies \
-            -project PrismMusic.xcodeproj \
-            -scheme PrismMusic
-
-      # ── Build for macOS ───────────────────────────────────────────
-      - name: Build macOS App
-        working-directory: ${{ steps.locate_project.outputs.root }}
-        run: |
-          set -o pipefail
-          xcodebuild build \
-            -project PrismMusic.xcodeproj \
-            -scheme PrismMusic \
-            -configuration Release \
-            -derivedDataPath build \
-            ARCHS="x86_64 arm64" \
-            ONLY_ACTIVE_ARCH=NO \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=YES \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES \
-            -quiet
-
-      # ── Locate the .app ──────────────────────────────────────────
-      - name: Locate built .app bundle
-        id: locate_app
-        working-directory: ${{ steps.locate_project.outputs.root }}
-        run: |
-          APP_PATH=$(find build/Build/Products -type d -name 'PrismMusic.app' | head -n 1)
-          if [ -z "$APP_PATH" ]; then
-            echo "::error::PrismMusic.app not found in build output."
-            echo "Build products tree:"
-            find build/Build/Products -type d -maxdepth 4 || true
-            exit 1
-          fi
-          echo "Found app at: $APP_PATH"
-          echo "app_path=$APP_PATH" >> "$GITHUB_OUTPUT"
-
-      # ── Package macOS app into DMG ────────────────────────────────
-      - name: Package macOS App into DMG
-        working-directory: ${{ steps.locate_project.outputs.root }}
-        run: |
-          APP_PATH="${{ steps.locate_app.outputs.app_path }}"
-          
-          # Create temporary staging directory for DMG
-          mkdir -p dmg-staging
-          cp -R "$APP_PATH" dmg-staging/
-          
-          # Create symbolic link to Applications folder
-          ln -s /Applications dmg-staging/Applications
-          
-          # Build DMG
-          hdiutil create -fs HFS+ -srcfolder dmg-staging -volname "PrismMusic" -format UDZO "$GITHUB_WORKSPACE/PrismMusic.dmg"
-          echo "=== DMG created ==="
-          ls -lh "$GITHUB_WORKSPACE/PrismMusic.dmg"
-
-      # ── Upload macOS app artifact ──────────────────────────────────
       - name: Upload macOS App DMG
         uses: actions/upload-artifact@v4
         with:
-          name: PrismMusic-macOS-${{ github.sha }}
-          path: PrismMusic.dmg
+          name: PrismMusic-macOS-Tauri-${{ github.sha }}
+          path: PrismMusic-macOS.dmg
           if-no-files-found: error
           retention-days: 30
