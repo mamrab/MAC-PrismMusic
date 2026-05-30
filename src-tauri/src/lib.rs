@@ -1,4 +1,6 @@
 use tauri::Manager;
+
+#[cfg(target_os = "windows")]
 use window_vibrancy::{apply_mica, apply_acrylic};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
