@@ -15,7 +15,7 @@
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>LSMinimumSystemVersion</key>
-    <string>14.0</string>
+    <string>15.7.4</string>
     <key>NSAppTransportSecurity</key>
     <dict>
         <key>NSAllowsArbitraryLoads</key>

@@ -1,6 +1,6 @@
 name: macOS Build
 
-# Builds the PrismMusic macOS app and produces a packaged .app bundle in a ZIP file.
+# Builds the PrismMusic macOS app and produces a packaged .app bundle in a DMG image.
 # No code signing certificate is required.
 
 on:
@@ -106,20 +106,29 @@ jobs:
           echo "Found app at: $APP_PATH"
           echo "app_path=$APP_PATH" >> "$GITHUB_OUTPUT"
 
-      # ── Package macOS app ─────────────────────────────────────────
-      - name: Package macOS app
+      # ── Package macOS app into DMG ────────────────────────────────
+      - name: Package macOS App into DMG
         working-directory: ${{ steps.locate_project.outputs.root }}
         run: |
           APP_PATH="${{ steps.locate_app.outputs.app_path }}"
-          APP_DIR=$(dirname "$APP_PATH")
-          cd "$APP_DIR"
-          zip -ry "$GITHUB_WORKSPACE/PrismMusic-macOS.zip" PrismMusic.app
+          
+          # Create temporary staging directory for DMG
+          mkdir -p dmg-staging
+          cp -R "$APP_PATH" dmg-staging/
+          
+          # Create symbolic link to Applications folder
+          ln -s /Applications dmg-staging/Applications
+          
+          # Build DMG
+          hdiutil create -fs HFS+ -srcfolder dmg-staging -volname "PrismMusic" -format UDZO "$GITHUB_WORKSPACE/PrismMusic.dmg"
+          echo "=== DMG created ==="
+          ls -lh "$GITHUB_WORKSPACE/PrismMusic.dmg"
 
       # ── Upload macOS app artifact ──────────────────────────────────
-      - name: Upload macOS App ZIP
+      - name: Upload macOS App DMG
         uses: actions/upload-artifact@v4
         with:
           name: PrismMusic-macOS-${{ github.sha }}
-          path: PrismMusic-macOS.zip
+          path: PrismMusic.dmg
           if-no-files-found: error
           retention-days: 30
