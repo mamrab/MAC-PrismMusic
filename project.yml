@@ -5,7 +5,7 @@ name: PrismMusic
 options:
   bundleIdPrefix: com.prism.music
   deploymentTarget:
-    macOS: "15.7.4"
+    macOS: "14.0"
   createIntermediateGroups: true
   defaultConfig: Debug
   groupSortPosition: top
