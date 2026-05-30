@@ -41,7 +41,7 @@ jobs:
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: universal-apple-darwin
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
 
       - name: Build Next.js Frontend
         run: |
