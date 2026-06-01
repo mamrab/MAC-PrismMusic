@@ -25,9 +25,6 @@ pub fn run() {
                     None, 
                     None
                 );
-                let _ = window.set_title("");
-                let _ = window.set_decorations(true);
-                let _ = window.set_title_bar_style(tauri::TitleBarStyle::Overlay);
             }
 
             Ok(())
