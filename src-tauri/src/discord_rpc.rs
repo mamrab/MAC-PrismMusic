@@ -181,14 +181,6 @@ impl DiscordRpcClient {
                 return Err("Failed to write Discord handshake".to_string());
             }
 
-            // Read Handshake response header (8 bytes)
-            let mut header = [0u8; 8];
-            if stream.read_exact(&mut header).is_ok() {
-                let len = u32::from_le_bytes([header[4], header[5], header[6], header[7]]) as usize;
-                let mut body = vec![0u8; len];
-                let _ = stream.read_exact(&mut body);
-            }
-
             Ok(())
         } else {
             Err("Discord is not running on this machine".to_string())
@@ -200,8 +192,11 @@ impl DiscordRpcClient {
             return Ok(());
         }
 
-        if self.stream.is_none() && self.connect().is_err() {
-            // Try connecting once, silently return if Discord is not open
+        if self.stream.is_none() {
+            let _ = self.connect();
+        }
+
+        if self.stream.is_none() {
             return Ok(());
         }
 
@@ -221,11 +216,20 @@ impl DiscordRpcClient {
         packet.extend_from_slice(&(payload_json.len() as u32).to_le_bytes());
         packet.extend_from_slice(payload_json.as_bytes());
 
-        if let Some(stream) = &mut self.stream {
-            if stream.write_all(&packet).is_err() || stream.flush().is_err() {
-                // Connection lost, reset stream for next reconnect attempt
-                self.stream = None;
-                return Err("Failed to send activity to Discord".to_string());
+        let write_failed = if let Some(stream) = &mut self.stream {
+            stream.write_all(&packet).is_err() || stream.flush().is_err()
+        } else {
+            true
+        };
+
+        if write_failed {
+            // Broken connection - attempt immediate reconnection and re-transmission
+            self.stream = None;
+            if self.connect().is_ok() {
+                if let Some(stream) = &mut self.stream {
+                    let _ = stream.write_all(&packet);
+                    let _ = stream.flush();
+                }
             }
         }
 
@@ -351,12 +355,8 @@ pub fn update_discord_presence(
         }),
         buttons: Some(vec![
             DiscordButton {
-                label: "Присоединиться к Prism".to_string(),
+                label: "Слушать вместе".to_string(),
                 url: listen_url,
-            },
-            DiscordButton {
-                label: "Открыть PrismMusic".to_string(),
-                url: "https://prism-music-virid.vercel.app".to_string(),
             },
         ]),
     };
@@ -381,4 +381,12 @@ pub fn set_discord_rpc_enabled(
         let _ = client.clear_activity();
     }
     Ok(())
+}
+
+pub type LaunchUrlState = Arc<Mutex<Option<String>>>;
+
+#[tauri::command]
+pub fn get_launch_url(state: tauri::State<'_, LaunchUrlState>) -> Option<String> {
+    let mut lock = state.lock().ok()?;
+    lock.take()
 }
