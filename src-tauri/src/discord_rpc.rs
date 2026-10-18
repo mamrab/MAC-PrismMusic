@@ -4,8 +4,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const DEFAULT_CLIENT_ID: &str = "1542995971783532644";
-const FALLBACK_COVER: &str = "https://prism-music-virid.vercel.app/api/logo";
-const APP_LOGO: &str = "https://prism-music-virid.vercel.app/api/logo";
+const FALLBACK_COVER: &str = "https://prismmusic.onrender.com/api/logo";
+const APP_LOGO: &str = "https://prismmusic.onrender.com/api/logo";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiscordTimestamps {
@@ -302,7 +302,7 @@ pub fn update_discord_presence(
     let listen_url = payload
         .track_url
         .filter(|u| u.starts_with("http://") || u.starts_with("https://"))
-        .unwrap_or_else(|| "https://prism-music-virid.vercel.app".to_string());
+        .unwrap_or_else(|| "https://prismmusic.onrender.com".to_string());
 
     let source_name = payload
         .source
